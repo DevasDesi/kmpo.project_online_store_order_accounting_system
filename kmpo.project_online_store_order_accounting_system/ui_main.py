@@ -21,7 +21,7 @@ class MainApp(QMainWindow):
         # Секция для отображения списка заказов
         self.orders_table = QTableWidget()
         self.orders_table.setColumnCount(5)  # 5 столбцов: Номер, Продукт, Количество, Цена, Статус
-        self.orders_table.setHorizontalHeaderLabels(["Order Number", "Product", "Quantity", "Price", "Status"])
+        self.orders_table.setHorizontalHeaderLabels(["Order Number", "Product", "Quantity", "Price(rubles)", "Status"])
         self.layout.addWidget(self.orders_table)
 
         # Обновляем список заказов
@@ -47,13 +47,16 @@ class MainApp(QMainWindow):
         container.setLayout(self.layout)
 
     def update_orders_list(self):
-        #"""Обновляем таблицу заказов."""
         orders = self.db.fetch_all("SELECT order_number, product_name, quantity, price, status FROM orders")
         self.orders_table.setRowCount(len(orders))
 
         for row, order in enumerate(orders):
             for col, data in enumerate(order):
+                # Округляем значение цены до 2 знаков после запятой
+                if col == 3:  # Столбец с ценой
+                    data = "{:.2f}".format(data)
                 self.orders_table.setItem(row, col, QTableWidgetItem(str(data)))
+
 
     def add_order(self):
         dialog = AddOrderDialog(self.db)
@@ -114,8 +117,8 @@ class ManageProductsDialog(QDialog):
 
         # Таблица для отображения существующих продуктов
         self.products_table = QTableWidget()
-        self.products_table.setColumnCount(4)  # 4 столбца: Название, Цена, Количество, Действия
-        self.products_table.setHorizontalHeaderLabels(["ID", "Product Name", "Price", "Quantity"])
+        self.products_table.setColumnCount(4)  # 4 столбца: ID, Название, Цена, Количество
+        self.products_table.setHorizontalHeaderLabels(["ID", "Product Name", "Price(rubles)", "Quantity"])
         self.layout.addWidget(self.products_table)
 
         # Кнопки для управления продуктами
@@ -123,23 +126,36 @@ class ManageProductsDialog(QDialog):
         self.add_product_button.clicked.connect(self.add_product)
         self.layout.addWidget(self.add_product_button)
 
+        self.edit_product_button = QPushButton("Edit Selected Product")
+        self.edit_product_button.clicked.connect(self.edit_selected_product)
+        self.layout.addWidget(self.edit_product_button)
+
         self.delete_product_button = QPushButton("Delete Selected Product")
         self.delete_product_button.clicked.connect(self.delete_selected_product)
         self.layout.addWidget(self.delete_product_button)
 
         self.load_products()
-
         self.setLayout(self.layout)
 
     def load_products(self):
         # Загружаем данные о товарах в таблицу
         products = self.db.fetch_all("SELECT id, name, price, quantity FROM products")
         self.products_table.setRowCount(len(products))
-        self.products_table.setColumnCount(4)
 
         for row, product in enumerate(products):
             for col, data in enumerate(product):
                 self.products_table.setItem(row, col, QTableWidgetItem(str(data)))
+
+    def edit_selected_product(self):
+        # Редактирование выбранного продукта
+        current_row = self.products_table.currentRow()
+        if current_row != -1:
+            product_id = int(self.products_table.item(current_row, 0).text())  # Получаем ID продукта
+            dialog = EditProductDialog(self.db, product_id)  # Открываем диалог редактирования
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.load_products()  # Обновляем список продуктов
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select a product to edit.")
 
     def add_product(self):
         dialog = AddProductDialog(self.db)
@@ -178,7 +194,7 @@ class AddProductDialog(QDialog):
         self.product_name_input.setPlaceholderText("Product Name")
 
         self.product_price_input = QLineEdit()
-        self.product_price_input.setPlaceholderText("Price")
+        self.product_price_input.setPlaceholderText("Price(rubles)")
 
         self.product_quantity_input = QLineEdit()
         self.product_quantity_input.setPlaceholderText("Quantity")
@@ -190,7 +206,7 @@ class AddProductDialog(QDialog):
 
         self.layout.addWidget(QLabel("Product Name:"))
         self.layout.addWidget(self.product_name_input)
-        self.layout.addWidget(QLabel("Price:"))
+        self.layout.addWidget(QLabel("Price(rubles):"))
         self.layout.addWidget(self.product_price_input)
         self.layout.addWidget(QLabel("Quantity:"))
         self.layout.addWidget(self.product_quantity_input)
@@ -234,7 +250,7 @@ class EditProductDialog(QDialog):
 
         self.layout.addWidget(QLabel("Product Name:"))
         self.layout.addWidget(self.product_name_input)
-        self.layout.addWidget(QLabel("Price:"))
+        self.layout.addWidget(QLabel("Price(rubles):"))
         self.layout.addWidget(self.product_price_input)
         self.layout.addWidget(QLabel("Quantity:"))
         self.layout.addWidget(self.product_quantity_input)
